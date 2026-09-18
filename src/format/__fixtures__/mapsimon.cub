@@ -1,0 +1,18 @@
+
+NO     ./textures/wall_n.xpm
+WE ./textures/wall_w.xpm
+SO ./img/among-us-red-shakes-booty.xpm
+EA ./img/among-us-red-shakes-booty.xpm
+
+C 135, 255, 255
+F 130, 170, 50
+
+
+11111111111111111
+10000000000000001
+100000000S000001
+10000000000000001
+10000011000000001
+1000000000000001
+11111111111111111
+eggdfgdfg

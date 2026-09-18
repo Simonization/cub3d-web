@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <title>cub3D</title>
+    <meta name="description" content="A browser raycaster you can rebuild while you play it. Draw the map, pick the colours, walk around inside it." />
+    <meta property="og:title" content="cub3D — build your own maze" />
+    <meta property="og:description" content="A browser raycaster you can rebuild while you play it. Draw the map, pick the colours, walk around inside it." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://play.langerock.xyz/" />
+    <meta property="og:image" content="https://play.langerock.xyz/preview.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🧱</text></svg>" />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="stage">
+      <canvas id="screen" width="960" height="540"></canvas>
+
+      <div id="hud" hidden>
+        <div id="crosshair"></div>
+        <div id="hint">
+          <kbd>WASD</kbd> move · <kbd>mouse</kbd> look · <kbd>M</kbd> map · <kbd>C</kbd> colours
+        </div>
+        <div id="stats"></div>
+      </div>
+
+      <div id="touch" hidden>
+        <button id="touch-map" type="button" aria-label="Edit map">M</button>
+        <button id="touch-colour" type="button" aria-label="Edit colours">C</button>
+      </div>
+
+      <div id="curtain">
+        <div class="panel">
+          <h1>cub3D</h1>
+          <p class="sub">A raycaster you can rebuild while you are standing in it.</p>
+          <button id="start" type="button">Enter</button>
+          <p class="keys">
+            <kbd>WASD</kbd> move · <kbd>M</kbd> edit the map · <kbd>C</kbd> edit the colours ·
+            <kbd>Esc</kbd> release the mouse
+          </p>
+          <p class="credit">
+            Ported from the 42 project by Simon Langerock and agoldber.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
