@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>How the monsters work</title>
+    <meta
+      name="description"
+      content="How the original DOOM implemented its monsters and its hit detection, and what this browser port does instead."
+    />
+    <style>
+      :root {
+        --bg: #07090c;
+        --ink: #c8d3df;
+        --dim: #7d8b9c;
+        --green: #4ade80;
+        --amber: #fbbf24;
+        --red: #f87171;
+        --rule: #1b2a22;
+        --mono: 'SF Mono', 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font: 15px/1.7 var(--mono);
+        padding: 0 16px 6rem;
+      }
+      main { max-width: 46rem; margin: 0 auto; }
+      header { padding: 4rem 0 2rem; border-bottom: 1px solid var(--rule); margin-bottom: 2.5rem; }
+      h1 { font-size: clamp(1.7rem, 6vw, 2.5rem); margin: 0 0 .6rem; color: var(--green); letter-spacing: .04em; }
+      header p { margin: 0; color: var(--dim); }
+      h2 {
+        margin: 3.2rem 0 1rem;
+        font-size: 1.12rem;
+        color: var(--amber);
+        letter-spacing: .06em;
+      }
+      h2 .n { color: var(--dim); margin-right: .6em; }
+      h3 { margin: 2rem 0 .6rem; font-size: 1rem; color: var(--green); }
+      p { margin: 0 0 1rem; }
+      code { background: #0e1a13; color: var(--green); padding: 1px 5px; border-radius: 3px; }
+      pre {
+        background: #0b1210;
+        border: 1px solid var(--rule);
+        border-left: 2px solid var(--green);
+        border-radius: 4px;
+        padding: 14px 16px;
+        overflow-x: auto;
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      pre code { background: none; padding: 0; color: #b6e3c6; }
+      a { color: var(--green); }
+      .lede { color: var(--dim); }
+      .ours {
+        border: 1px solid var(--rule);
+        border-left: 2px solid var(--amber);
+        border-radius: 4px;
+        background: #100d06;
+        padding: 12px 16px;
+        margin: 1.2rem 0;
+      }
+      .ours b { color: var(--amber); font-weight: 600; }
+      .ours p:last-child { margin-bottom: 0; }
+      table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 13.5px; }
+      th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+      th { color: var(--dim); font-weight: 600; }
+      .back { display: inline-block; margin-top: 3rem; color: var(--dim); }
+      footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--rule); color: var(--dim); font-size: 13px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>How the monsters work</h1>
+        <p class="lede">
+          What DOOM actually did in 1993, and what this port does instead — including the
+          exact test for whether a shot hit or went past.
+        </p>
+      </header>
+
+      <p>
+        The raycaster underneath this game is a port of a 42 school project written in C.
+        It draws walls and nothing else: no enemies, no sprites, no depth buffer, and a
+        <code>fire()</code> that starts an animation and throws the mouse coordinates away.
+        Everything below had to be built, so it was worth building it the way the game that
+        invented this genre did.
+      </p>
+
+      <h2><span class="n">01</span>Everything is a table, not a branch</h2>
+      <p>
+        The instinct is to write monster behaviour as code: <em>if the player is visible and
+        close, attack; otherwise walk towards them.</em> DOOM does almost none of that. In
+        <code>info.c</code> every actor in the game is described by two enormous tables, and
+        the behaviour falls out of them.
+      </p>
+      <p>A state is five fields:</p>
+      <pre><code>{ sprite, frame, tics, action, nextstate }</code></pre>
+      <p>
+        <code>P_MobjThinker</code> runs once per tic — DOOM's clock ran at 35 of them a
+        second — counts <code>tics</code> down, and when it reaches zero moves the actor to
+        <code>nextstate</code> and calls that state's <code>action</code> function. An imp
+        walking is just a ring of states pointing at each other: <code>S_TROO_RUN1</code>
+        through <code>S_TROO_RUN8</code>, each with <code>A_Chase</code> as its action, the
+        last pointing back at the first.
+      </p>
+      <p>
+        The pay-off is that adding a monster means adding rows to a table, not writing a new
+        class. The cost is that behaviour is scattered across a data file, which is why
+        reading <code>info.c</code> cold is miserable.
+      </p>
+      <div class="ours">
+        <p><b>Here:</b> the same machine, with one shortcut. DOOM gives every animation
+        frame its own state; <code>src/game/enemy.ts</code> lets a state carry the list of
+        frames it cycles, because typing eight near-identical rows adds nothing. The table
+        is still a table — <code>IDLE</code>, <code>CHASE</code>, <code>WINDUP</code>,
+        <code>STRIKE</code>, <code>RECOVER</code>, <code>PAIN</code>, <code>DEATH</code>,
+        <code>CORPSE</code> — and the update loop still just counts down and advances.</p>
+      </div>
+
+      <h2><span class="n">02</span>Noticing you: A_Look</h2>
+      <p>
+        An idle monster sits in a state whose action is <code>A_Look</code>. That calls
+        <code>P_LookForPlayers</code>, which calls <code>P_CheckSight</code> — a line-of-sight
+        test that walks the level's BSP tree to find out whether anything solid sits between
+        the two points.
+      </p>
+      <p>
+        There is a second way to be noticed, and it is the one people remember without
+        knowing why. When you fire a weapon, <code>P_NoiseAlert</code> floods the sound
+        through connected sectors, waking monsters in rooms you have not entered yet. That is
+        why a single shotgun blast can bring a level down on your head, and why the chainsaw
+        felt sneaky.
+      </p>
+      <div class="ours">
+        <p><b>Here:</b> there is no BSP, but there is already a DDA — the same grid walk the
+        renderer runs 960 times a frame to draw the walls. Line of sight is that ray, stopped
+        short: cast from the enemy towards the player and compare the distance it travelled
+        against the distance between them. If the wall is nearer, no sight. It is about six
+        lines, in <code>hasLineOfSight</code>.</p>
+        <p>The noise rule is simpler still: a shot that hits nothing wakes every enemy on the
+        level. Small rooms, no sectors to flood.</p>
+      </div>
+
+      <h2><span class="n">03</span>Coming at you: A_Chase and the eight directions</h2>
+      <p>
+        This is the part worth stealing. A DOOM monster <strong>cannot walk at an arbitrary
+        angle</strong>. It moves in one of eight directions — the four compass points and the
+        four diagonals — and that is all. <code>P_NewChaseDir</code> picks one:
+      </p>
+      <ol>
+        <li>Work out which way the player is, as one horizontal and one vertical preference.</li>
+        <li>Try the diagonal that combines them.</li>
+        <li>Try each of the two on its own, longer axis first.</li>
+        <li>Try every remaining direction.</li>
+        <li>Give up and turn around.</li>
+      </ol>
+      <p>
+        A counter called <code>movecount</code> forces a fresh decision every so often, which
+        is what stops a monster grinding against a corner forever. The 45-degree granularity
+        is why DOOM monsters have that faintly crab-like gait — and why they read as
+        <em>creatures</em> rather than homing missiles.
+      </p>
+      <h3>The choice you have</h3>
+      <table>
+        <tr><th>Approach</th><th>Feels like</th><th>Cost</th></tr>
+        <tr>
+          <td>Eight directions, DOOM-style</td>
+          <td>Characterful, slightly jerky, occasionally dim</td>
+          <td>~40 lines</td>
+        </tr>
+        <tr>
+          <td>Steer straight at the player, slide along walls</td>
+          <td>Smooth, but sticks on corners and feels robotic</td>
+          <td>~10 lines</td>
+        </tr>
+        <tr>
+          <td>A* or breadth-first on the tile grid</td>
+          <td>Never stuck, and unnervingly clever</td>
+          <td>~80 lines, and it can feel unfair</td>
+        </tr>
+      </table>
+      <div class="ours">
+        <p><b>Here:</b> eight directions, faithfully, in <code>newChaseDir</code>. The tile
+        grid is small and open enough that pathfinding would only make the enemies harder to
+        read. The boss is the place to reach for A* if it ever needs it.</p>
+      </div>
+
+      <h2><span class="n">04</span>Hitting you</h2>
+      <p>
+        Once in range, <code>A_Chase</code> hands over to an attack state. DOOM's attack
+        actions come in three flavours, and every monster is some mix of them:
+      </p>
+      <table>
+        <tr><th>Action</th><th>What it does</th></tr>
+        <tr><td><code>A_PosAttack</code></td><td>Hitscan — an instant ray, with a random angle spread so the zombie is not a sniper.</td></tr>
+        <tr><td><code>A_SargAttack</code></td><td>Pure melee: if you are close enough when the claw lands, you take damage.</td></tr>
+        <tr><td><code>A_TroopAttack</code></td><td>Melee up close, otherwise <code>P_SpawnMissile</code> — a real moving object with its own thinker.</td></tr>
+      </table>
+      <p>
+        Every one of them starts with <code>A_FaceTarget</code>, which snaps the monster to
+        look at you. Damage is rolled, not fixed: <code>((P_Random() % 5) + 1) * 3</code> and
+        friends. Random, but bounded — you can always survive a known number of hits.
+      </p>
+      <div class="ours">
+        <p><b>Here:</b> melee, with a deliberate <code>WINDUP</code> state in front of it.
+        The enemy rears up for 0.45 seconds before the strike lands, and damage is applied on
+        the strike frame only — so backing away mid-swing actually works. That telegraph is
+        the whole reason the early levels are fair rather than merely easy.</p>
+      </div>
+
+      <h2><span class="n">05</span>Getting hurt, and flinching</h2>
+      <p>
+        <code>P_DamageMobj</code> does three things worth copying. It subtracts the damage. It
+        sets the monster's target to whoever just hit it — which is why monsters turn on each
+        other when they catch a stray fireball. And it rolls against <code>painchance</code>,
+        a per-monster number, to decide whether to drop into the <code>painstate</code> and
+        stagger.
+      </p>
+      <p>
+        That one number carries an enormous amount of character. A former human flinches at
+        almost anything and can be stun-locked by a chaingun. A Baron of Hell barely notices.
+        Nothing else about the two monsters needs to differ for them to feel completely
+        different to fight.
+      </p>
+      <p>
+        On death, <code>P_KillMobj</code> picks <code>deathstate</code>, or
+        <code>xdeathstate</code> if the damage massively overkilled — that is the gib
+        threshold. <code>A_Fall</code> then clears the <code>MF_SOLID</code> flag, which is
+        precisely why you can walk over corpses.
+      </p>
+      <div class="ours">
+        <p><b>Here:</b> all three. <code>painChance</code> is 0.75 for the grunt and 0.18 for
+        the boss, and <code>solid</code> returns false once dead. No gibs.</p>
+      </div>
+
+      <h2><span class="n">06</span>An aside: DOOM's random numbers are not random</h2>
+      <p>
+        <code>P_Random</code> does not compute anything. It reads the next byte from
+        <code>rndtable</code>, a fixed array of 256 values baked into the source, and bumps an
+        index. Every "random" event in the game — damage rolls, pain chance, shotgun spread —
+        comes off that one table.
+      </p>
+      <p>
+        It was fast, and it made demo recording possible: replay the same inputs from the same
+        table index and you get the same playthrough, exactly. Speedrun verification still
+        rests on it.
+      </p>
+
+      <h2><span class="n">07</span>Drawing them: billboards with eight faces</h2>
+      <p>
+        A DOOM monster is a flat picture that always turns to face the camera. What stops it
+        looking flat is that there are eight pictures — <code>TROOA1</code> through
+        <code>TROOA8</code> — and the renderer picks one from the angle between where you are
+        standing and where the monster is facing. Walk around an imp and you see its back.
+      </p>
+      <p>
+        Most sheets only draw five, because the three side-on views can be mirrored. The rule
+        is: take the angle from the actor to the viewer, subtract the actor's own angle, add
+        half a sector so the boundaries land in sensible places, and split into eight
+        45-degree buckets.
+      </p>
+      <p>
+        Sprites are drawn after the walls, sorted far-to-near, and clipped per screen column
+        against the solid wall segments already recorded for that column. Without that
+        clipping a monster behind a pillar would be painted straight over it.
+      </p>
+      <div class="ours">
+        <p><b>Here:</b> the same, and the clipping is the reason the port needed something
+        the C original does not have. The raycaster now stores the perpendicular wall distance
+        for every screen column in a <code>Float32Array</code>, and
+        <code>drawSprites</code> skips any column where the sprite is further away than the
+        wall in front of it. One array, one comparison, and the enemies correctly disappear
+        behind pillars.</p>
+        <p>The sprite sheet is CC0 art by Nmn with five rotations, mirrored to eight by
+        <code>rotationFrame</code>.</p>
+      </div>
+
+      <h2><span class="n">08</span>Shooting, and whether you hit</h2>
+      <p>
+        This is the question that started all of it: when you pull the trigger, how does the
+        program decide between a hit and a shot that went past?
+      </p>
+      <p>
+        DOOM answers it with <code>P_AimLineAttack</code> followed by
+        <code>P_LineAttack</code>, both walking the <em>blockmap</em> — a coarse grid laid
+        over the level, where each 128×128 cell lists the things inside it, so a shot only
+        ever tests nearby objects instead of all of them. The aim pass also auto-aims
+        vertically, because the player had no way to look up or down.
+      </p>
+      <p>
+        Our map <em>is</em> already a grid, so we get the same spatial shortcut for free, and
+        the whole test reduces to a ray against a circle. With <code>dir</code> the unit
+        vector you are facing and <code>v</code> the vector from you to the enemy:
+      </p>
+      <pre><code>const v     = enemy.pos - player.pos;
+
+const along = v.x * dir.x + v.y * dir.y;   // how far DOWN the ray it sits
+const perp  = |v.x * dir.y - v.y * dir.x|; // how far to the SIDE of the ray
+
+hit = along &gt; 0
+   && perp  &lt;= enemy.radius
+   && along &lt;  distanceToWall;</code></pre>
+      <p>Three lines, three separate questions:</p>
+      <ul>
+        <li>
+          <strong><code>along &gt; 0</code></strong> — the dot product is negative for
+          anything behind you. This is the "you cannot shoot backwards" test.
+        </li>
+        <li>
+          <strong><code>perp &lt;= radius</code></strong> — the 2D cross product of a unit
+          vector with <code>v</code> <em>is</em> the perpendicular distance from the enemy's
+          centre to the infinite line of your shot. So this is literally "how far to the side
+          of the bullet was he". Within his radius: hit. Outside it: you missed, and by
+          exactly <code>perp - radius</code> tiles. The game reports that number, which is
+          how the tests assert that a 25-degree turn misses by 1.35 tiles.
+        </li>
+        <li>
+          <strong><code>along &lt; distanceToWall</code></strong> — the wall ray is cast
+          first, with the same DDA the renderer uses. If the wall is nearer than the enemy,
+          you shot the wall. This single comparison is the entire reason you cannot shoot
+          through walls.
+        </li>
+      </ul>
+      <h3>The simpler alternative, and why it was not used</h3>
+      <p>
+        There is an easier test: the crosshair is at the centre of the screen, so ask whether
+        the enemy's drawn sprite covers the centre column and whether it is nearer than the
+        z-buffer value there. It is about four lines and it always agrees with what the player
+        can see, which is a real virtue.
+      </p>
+      <p>
+        It was not used because it welds the rules of the game to the renderer. Shotgun
+        pellets, enemies shooting each other, and anything fired by something that is not the
+        camera all stop working. The world-space test does not care who is shooting.
+      </p>
+      <p>
+        One concession to playability: a small aim assist widens the target radius slightly,
+        and shrinks that bonus with distance. DOOM's auto-aim was doing the same favour, less
+        subtly.
+      </p>
+
+      <h2><span class="n">09</span>What is still missing</h2>
+      <p>
+        Projectiles as real moving actors, so the boss can fire something dodgeable rather
+        than something instant. Monster infighting, which falls out almost free from the
+        target-switching already implemented. Sound, which does more for the feel of a hit
+        than any of the above. And DOOM's sector-flooded noise alert, which needs a notion of
+        rooms that a flat tile grid does not have.
+      </p>
+
+      <a class="back" href="/">&larr; back to the game</a>
+
+      <footer>
+        DOOM's source was released by id Software in 1997; the function names above are from
+        it. The enemy sprite sheet is CC0 by Nmn. The C raycaster this is built on is by Simon
+        Langerock and agoldber.
+      </footer>
+    </main>
+  </body>
+</html>

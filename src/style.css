@@ -503,3 +503,144 @@ kbd {
   .map-layout { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; }
   .face { grid-template-columns: 1fr auto auto; }
 }
+
+/* ---------- combat HUD ---------- */
+
+#vitals {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 22px;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  color: #8ea0b5;
+  text-shadow: 0 1px 3px #000;
+  white-space: nowrap;
+}
+
+#vitals b {
+  color: #e7ecf3;
+  font-size: 17px;
+}
+
+#vitals #health.low b {
+  color: var(--danger);
+}
+
+#banner {
+  position: absolute;
+  left: 50%;
+  top: 16%;
+  transform: translateX(-50%);
+  padding: 8px 20px;
+  border: 1px solid #ffffff1f;
+  border-radius: 4px;
+  background: #05070ac4;
+  color: var(--amber);
+  font-size: 15px;
+  letter-spacing: 0.16em;
+  white-space: nowrap;
+  opacity: 0;
+}
+
+#banner.show {
+  animation: banner 3.2s ease forwards;
+}
+
+@keyframes banner {
+  0% { opacity: 0; transform: translate(-50%, -8px); }
+  12% { opacity: 1; transform: translate(-50%, 0); }
+  75% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+#damage {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 35%, #b91c1c 100%);
+  opacity: 0;
+  transition: opacity 90ms linear;
+}
+
+/* ---------- between-level panel ---------- */
+
+#between {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #04070bee;
+  text-align: center;
+  padding: 24px;
+  z-index: 8;
+}
+
+#between[hidden] {
+  display: none;
+}
+
+#between h2 {
+  margin: 0 0 0.6rem;
+  font-size: clamp(1.8rem, 7vw, 3rem);
+  letter-spacing: 0.18em;
+  color: var(--terminal);
+}
+
+#between p {
+  margin: 0 0 1.6rem;
+  color: #94a3b8;
+  font-size: 0.95rem;
+}
+
+#between button {
+  padding: 0.65rem 2.2rem;
+  border: 1px solid var(--terminal);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--terminal);
+  font: 600 0.95rem/1 var(--mono);
+  letter-spacing: 0.16em;
+  cursor: pointer;
+}
+
+#between button:hover {
+  background: var(--terminal);
+  color: #04120a;
+}
+
+#between.credits {
+  background: #000;
+}
+
+#between.credits h2 {
+  color: #e7ecf3;
+  animation: fadeup 3.2s ease;
+}
+
+#between.credits p {
+  animation: fadeup 3.2s ease 0.2s both;
+}
+
+@keyframes fadeup {
+  0% { opacity: 0; transform: translateY(18px); }
+  25% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 1; }
+}
+
+#touch-fire {
+  width: 64px !important;
+  height: 64px !important;
+  color: var(--danger) !important;
+  font-size: 12px !important;
+}
+
+.panel .credit a {
+  color: #64748b;
+  text-decoration-color: #33415580;
+}
+
+.panel .credit a:hover {
+  color: var(--terminal);
+}

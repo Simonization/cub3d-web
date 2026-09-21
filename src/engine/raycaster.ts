@@ -101,6 +101,9 @@ export function hasLineOfSight(
   return castRay(grid, fromX, fromY, dx / length, dy / length).distance >= length;
 }
 
+/** Key for the per-tile texture overrides the door uses. */
+export const tileKey = (x: number, y: number): string => `${x},${y}`;
+
 export function renderScene(
   surface: Surface,
   grid: string[],
@@ -108,6 +111,7 @@ export function renderScene(
   textures: WallTextures,
   ceiling: number,
   floor: number,
+  overrides?: ReadonlyMap<string, Texture>,
 ): void {
   const { width, height, data, zbuffer } = surface;
   const horizon = height / 2 + player.pitch;
@@ -129,6 +133,7 @@ export function renderScene(
     let texture: Texture;
     if (!hit.side) texture = rayDirX > 0 ? textures.EA : textures.WE;
     else texture = rayDirY > 0 ? textures.SO : textures.NO;
+    if (overrides) texture = overrides.get(tileKey(hit.mapX, hit.mapY)) ?? texture;
 
     let wallX = hit.side ? posX + distance * rayDirX : posY + distance * rayDirY;
     wallX -= Math.floor(wallX);

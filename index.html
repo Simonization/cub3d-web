@@ -21,12 +21,29 @@
       <div id="hud" hidden>
         <div id="crosshair"></div>
         <div id="hint">
-          <kbd>WASD</kbd> move · <kbd>mouse</kbd> look · <kbd>M</kbd> map · <kbd>C</kbd> colours
+          <kbd>WASD</kbd> move · <kbd>mouse</kbd> look · <kbd>click</kbd> shoot ·
+          <kbd>M</kbd> map · <kbd>C</kbd> colours
         </div>
         <div id="stats"></div>
+        <div id="vitals">
+          <span id="health"><b>100</b> hp</span>
+          <span id="ammo"><b>40</b> ammo</span>
+          <span id="left"></span>
+        </div>
+        <div id="banner"></div>
+        <div id="damage"></div>
+      </div>
+
+      <div id="between" hidden>
+        <div class="panel">
+          <h2 id="between-title"></h2>
+          <p id="between-text"></p>
+          <button id="between-go" type="button">Continue</button>
+        </div>
       </div>
 
       <div id="touch" hidden>
+        <button id="touch-fire" type="button" aria-label="Fire">FIRE</button>
         <button id="touch-map" type="button" aria-label="Edit map">M</button>
         <button id="touch-colour" type="button" aria-label="Edit colours">C</button>
       </div>
@@ -41,7 +58,8 @@
             <kbd>Esc</kbd> release the mouse
           </p>
           <p class="credit">
-            Ported from the 42 project by Simon Langerock and agoldber.
+            Ported from the 42 project by Simon Langerock and agoldber. ·
+            <a href="/making-of.html">How the monsters work</a>
           </p>
         </div>
       </div>
