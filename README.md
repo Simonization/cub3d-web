@@ -8,6 +8,10 @@ Press **M** for a terminal where you draw the map with `0` and `1`. Press **C** 
 where you set the floor and ceiling colours channel by channel and give each of the four
 walls its own image. Both screens explain what they are doing while you use them.
 
+Then there are four levels and something behind a door marked THE END.
+[How the monsters work](public/making-of.html) is the long version: what DOOM actually
+did in 1993, and what this does instead.
+
 ## Running it
 
 ```sh
@@ -31,7 +35,16 @@ sampled, and a DDA with no bounds check. `main.c` also treats a floor or ceiling
 of `0,0,0` as "not set" and refuses to start; here black is a colour like any other.
 
 Distances are in tile units rather than the C's 64-pixel blocks, and there is a
-per-column depth buffer the C has no equivalent of — the enemies need it.
+per-column depth buffer the C has no equivalent of — the enemies need it to be clipped
+behind pillars.
+
+## Hitting things
+
+A shot is a ray; each enemy is a circle. With `dir` the unit vector you face and `v` the
+vector to the enemy, `v · dir` is how far down the ray it sits and
+`|v.x*dir.y − v.y*dir.x|` is how far to the *side* of it — so that second number is
+literally "by how much did I miss", and comparing the first against the wall distance is
+what stops shots going through walls. `src/game/weapon.ts`, tested in `weapon.test.ts`.
 
 ## Layout
 
